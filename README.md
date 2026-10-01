@@ -227,3 +227,4 @@ pytest healthsync_ai/tests -v
 
 > **IMPORTANT:**  
 > This software is a working prototype developed for demonstration and hackathon evaluation. All hospital names, patient volumes, medicine balances, and federated parameters are **realistic fictional representations**. The platform does not connect to live government databases or transmit real patient records.
+> Deployment Link : https://healthsync-ai-vy9i.onrender.com/login
