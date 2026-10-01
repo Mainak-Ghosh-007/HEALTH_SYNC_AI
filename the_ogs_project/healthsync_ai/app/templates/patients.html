@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}Patient Footfall & Surge Surveillance — HealthSync AI{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+  <div>
+    <h3 class="fw-bold text-navy mb-1">Patient Footfall & Surge Surveillance</h3>
+    <p class="text-muted small mb-0">Live OPD registrations, triage volume, syndromic surges, and emergency intake telemetry.</p>
+  </div>
+  <div class="d-flex gap-2">
+    <select id="phcPatientSelect" class="form-select form-select-sm">
+      <option value="">National Network Aggregate (All PHCs)</option>
+      {% for p in phcs %}
+        <option value="{{ p.id }}">{{ p.phc_code }} — {{ p.name }} ({{ p.district }})</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+<!-- KPI Summary Row -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3 col-sm-6">
+    <div class="command-card kpi-card">
+      <div class="kpi-title">Today's Total Registrations</div>
+      <div class="kpi-value text-primary">{{ total_today }}</div>
+      <div class="small text-danger fw-semibold mt-1">
+        <i class="fa-solid fa-arrow-trend-up me-1"></i>+14.2% vs 7-day average
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-sm-6">
+    <div class="command-card kpi-card kpi-warning">
+      <div class="kpi-title">Emergency Intakes</div>
+      <div class="kpi-value text-warning">{{ emergencies_today }}</div>
+      <div class="small text-muted fw-semibold mt-1">
+        8.5% of total outpatient flow
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-sm-6">
+    <div class="command-card kpi-card">
+      <div class="kpi-title">7-Day Rolling Average</div>
+      <div class="kpi-value text-dark">{{ weekly_avg }}</div>
+      <div class="small text-muted fw-semibold mt-1">
+        Stabilized baseline
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-sm-6">
+    <div class="command-card kpi-card kpi-ai">
+      <div class="kpi-title">Monthly Footfall Volume</div>
+      <div class="kpi-value" style="color: var(--ai-purple);">{{ monthly_footfall }}</div>
+      <div class="small text-success fw-semibold mt-1">
+        Surge factor: 1.18x seasonal
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-8">
+    <div class="command-card p-4 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h5 class="fw-bold mb-0">Daily Outpatient Footfall Trend (14 Days)</h5>
+          <p class="text-muted small mb-0">Comparative visualization of general OPD patients vs acute emergency triage.</p>
+        </div>
+      </div>
+      <div style="height: 280px; position: relative;">
+        <canvas id="patientTrendChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="command-card p-4 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h5 class="fw-bold mb-0">Triage Case Distribution</h5>
+          <p class="text-muted small mb-0">Clinical presentation breakdown</p>
+        </div>
+      </div>
+      <div style="height: 240px; position: relative;">
+        <canvas id="triagePieChart"></canvas>
+      </div>
+      <div class="mt-3 text-center small text-muted">
+        Seasonal respiratory and gastrointestinal syndromes represent 64% of volume.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Footfall Log Records -->
+<div class="command-card">
+  <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+    <h6 class="fw-bold mb-0">Telemetry Log Records</h6>
+    <span class="badge bg-secondary-subtle text-secondary">{{ patient_records|length }} Recent Telemetry Cycles</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-custom mb-0">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>PHC Facility</th>
+          <th>District</th>
+          <th>Total Footfall</th>
+          <th>Emergency Cases</th>
+          <th>Emergency Ratio</th>
+          <th>Surge Flag</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in patient_records %}
+        <tr>
+          <td class="fw-semibold">{{ r.date.strftime('%d %b %Y') }}</td>
+          <td>{{ r.phc.name }} <span class="badge bg-light text-muted border ms-1">{{ r.phc.phc_code }}</span></td>
+          <td>{{ r.phc.district }}</td>
+          <td class="fw-bold text-dark">{{ r.patient_count }}</td>
+          <td class="text-danger fw-bold">{{ r.emergency_cases }}</td>
+          <td>{{ (r.emergency_cases / max(1, r.patient_count) * 100) | round(1) }}%</td>
+          <td>
+            {% if r.patient_count > 250 %}
+              <span class="badge badge-critical">SURGE HIGH</span>
+            {% elif r.patient_count > 190 %}
+              <span class="badge badge-medium">ELEVATED</span>
+            {% else %}
+              <span class="badge badge-low">NOMINAL</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Line Chart
+  const lineCtx = document.getElementById('patientTrendChart').getContext('2d');
+  new Chart(lineCtx, {
+    type: 'line',
+    data: {
+      labels: ['14d ago', '12d ago', '10d ago', '8d ago', '6d ago', '4d ago', '2d ago', 'Today'],
+      datasets: [
+        {
+          label: 'Total Outpatient Visits',
+          data: [4120, 4280, 4390, 4520, 4610, 4780, 4920, 5120],
+          borderColor: '#0284c7',
+          backgroundColor: 'rgba(2, 132, 199, 0.08)',
+          fill: true,
+          tension: 0.3
+        },
+        {
+          label: 'Acute Emergency Cases',
+          data: [310, 325, 340, 370, 385, 410, 420, 442],
+          borderColor: '#ef4444',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderDash: [4, 4],
+          tension: 0.3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { beginAtZero: false }
+      }
+    }
+  });
+
+  // Pie Chart
+  const pieCtx = document.getElementById('triagePieChart').getContext('2d');
+  new Chart(pieCtx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Respiratory Illness', 'Acute Diarrhoeal', 'Fever / Vector-borne', 'Maternal & Child', 'Chronic / NCD'],
+      datasets: [{
+        data: [34, 30, 16, 12, 8],
+        backgroundColor: ['#0284c7', '#ef4444', '#f59e0b', '#10b981', '#7928ca']
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } }
+      }
+    }
+  });
+});
+</script>
+{% endblock %}

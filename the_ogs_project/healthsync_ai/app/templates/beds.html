@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block title %}Bed Availability & Surge Capacity — HealthSync AI{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+  <div>
+    <h3 class="fw-bold text-navy mb-1">National Inpatient Bed Availability & Capacity Management</h3>
+    <p class="text-muted small mb-0">Telemetry on acute inpatient beds, ICU-capable buffer, district occupancy distribution, and early bed-strain warnings.</p>
+  </div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-sm btn-outline-danger" onclick="filterHighOccupancy()">
+      <i class="fa-solid fa-triangle-exclamation me-1"></i> View >90% High Pressure PHCs
+    </button>
+  </div>
+</div>
+
+<!-- Warning Banners if >90% or >95% -->
+{% if critical_occupancy_phcs %}
+<div class="alert alert-danger d-flex align-items-center mb-4 shadow-sm" role="alert">
+  <i class="fa-solid fa-circle-radiation fs-3 me-3 text-danger"></i>
+  <div>
+    <h6 class="alert-heading fw-bold mb-1">CRITICAL BED EXHAUSTION CEILING REACHED (>95%)</h6>
+    <span>Facilities under extreme surge: 
+      {% for cp in critical_occupancy_phcs %}
+        <strong>{{ cp.phc_code }} ({{ cp.name }} - {{ cp.bed_occupancy_rate }}%)</strong>{% if not loop.last %}, {% endif %}
+      {% endfor %}
+      — Urgent triage diversion and patient redistribution protocols recommended.
+    </span>
+  </div>
+</div>
+{% endif %}
+
+{% if high_occupancy_phcs %}
+<div class="alert alert-warning d-flex align-items-center mb-4 shadow-sm" role="alert">
+  <i class="fa-solid fa-triangle-exclamation fs-3 me-3 text-warning"></i>
+  <div>
+    <h6 class="alert-heading fw-bold mb-1">HIGH BED PRESSURE WARNING (>90%)</h6>
+    <span>{{ high_occupancy_phcs|length }} Primary Health Centres are currently operating at or above 90% bed capacity. Surge reserve buffer is critically narrow.</span>
+  </div>
+</div>
+{% endif %}
+
+<!-- KPI Cards Row -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3 col-sm-6">
+    <div class="command-card kpi-card">
+      <div class="kpi-title">National Bed Capacity</div>
+      <div class="kpi-value text-primary">{{ total_beds }}</div>
+      <div class="small text-muted fw-semibold mt-1">Configured in-network beds</div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-sm-6">
+    <div class="command-card kpi-card kpi-danger">
+      <div class="kpi-title">Occupied Inpatient Beds</div>
+      <div class="kpi-value text-danger">{{ occupied_beds }}</div>
+      <div class="small text-danger fw-semibold mt-1">+2.4% net admissions today</div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-sm-6">
+    <div class="command-card kpi-card kpi-success">
+      <div class="kpi-title">Available Surge Reserve</div>
+      <div class="kpi-value text-success">{{ available_beds }}</div>
+      <div class="small text-success fw-semibold mt-1">Ready for immediate intake</div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-sm-6">
+    <div class="command-card kpi-card kpi-warning">
+      <div class="kpi-title">National Occupancy Rate</div>
+      <div class="kpi-value text-warning">{{ occupancy_rate }}%</div>
+      <div class="small text-warning fw-semibold mt-1">
+        <i class="fa-solid fa-arrow-trend-up me-1"></i>High-pressure threshold
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-7">
+    <div class="command-card p-4 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h5 class="fw-bold mb-0">District Bed Occupancy Comparison</h5>
+          <p class="text-muted small mb-0">Cross-district variance in hospital capacity utilization.</p>
+        </div>
+      </div>
+      <div style="height: 270px; position: relative;">
+        <canvas id="districtBedChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="command-card p-4 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h5 class="fw-bold mb-0">Capacity Buffer Distribution</h5>
+          <p class="text-muted small mb-0">Occupied vs Available</p>
+        </div>
+      </div>
+      <div style="height: 220px; position: relative;">
+        <canvas id="occupancyGaugeChart"></canvas>
+      </div>
+      <div class="text-center mt-3 small">
+        <span class="badge bg-danger me-2">Occupied: 8,420 (84.2%)</span>
+        <span class="badge bg-success">Available: 1,580 (15.8%)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PHC Bed Status Registry Table -->
+<div class="command-card">
+  <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+    <h6 class="fw-bold mb-0">PHC Bed Utilization Telemetry</h6>
+    <span class="badge bg-secondary-subtle text-secondary">{{ phcs|length }} Facilities Monitored</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-custom mb-0" id="phcBedTable">
+      <thead>
+        <tr>
+          <th>PHC Facility</th>
+          <th>District</th>
+          <th>Total Beds</th>
+          <th>Occupied</th>
+          <th>Available</th>
+          <th>Occupancy Rate</th>
+          <th>Surge Alert Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in phcs %}
+        <tr class="phc-bed-row" data-rate="{{ p.bed_occupancy_rate }}">
+          <td class="fw-bold text-dark">{{ p.name }} <span class="badge bg-light text-muted border ms-1">{{ p.phc_code }}</span></td>
+          <td>{{ p.district }}</td>
+          <td>{{ p.total_beds }}</td>
+          <td class="fw-semibold text-danger">{{ p.occupied_beds }}</td>
+          <td class="fw-semibold text-success">{{ p.total_beds - p.occupied_beds }}</td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <span class="fw-bold">{{ p.bed_occupancy_rate }}%</span>
+            </div>
+            <div class="progress mt-1" style="height: 5px; width: 120px;">
+              {% if p.bed_occupancy_rate >= 95 %}
+                <div class="progress-bar bg-danger" style="width: {{ p.bed_occupancy_rate }}%;"></div>
+              {% elif p.bed_occupancy_rate >= 90 %}
+                <div class="progress-bar bg-warning" style="width: {{ p.bed_occupancy_rate }}%;"></div>
+              {% else %}
+                <div class="progress-bar bg-success" style="width: {{ p.bed_occupancy_rate }}%;"></div>
+              {% endif %}
+            </div>
+          </td>
+          <td>
+            {% if p.bed_occupancy_rate >= 95 %}
+              <span class="badge badge-critical"><i class="fa-solid fa-triangle-exclamation me-1"></i>CRITICAL (>95%)</span>
+            {% elif p.bed_occupancy_rate >= 90 %}
+              <span class="badge badge-high"><i class="fa-solid fa-clock me-1"></i>HIGH PRESSURE (>90%)</span>
+            {% elif p.bed_occupancy_rate >= 75 %}
+              <span class="badge badge-medium">ELEVATED</span>
+            {% else %}
+              <span class="badge badge-low">NOMINAL BUFFER</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // District Bed Bar Chart
+  const barCtx = document.getElementById('districtBedChart').getContext('2d');
+  new Chart(barCtx, {
+    type: 'bar',
+    data: {
+      labels: ['Bardhaman', 'Durgapur', 'Asansol', 'Ranchi', 'Bokaro', 'Howrah', 'Siliguri'],
+      datasets: [
+        {
+          label: 'Occupancy Rate (%)',
+          data: [88.5, 62.8, 84.0, 90.0, 60.0, 92.0, 88.0],
+          backgroundColor: [
+            '#f59e0b', '#10b981', '#f59e0b', '#ef4444', '#10b981', '#ef4444', '#f59e0b'
+          ],
+          borderRadius: 6
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { max: 100, beginAtZero: true, title: { display: true, text: 'Occupancy %' } }
+      }
+    }
+  });
+
+  // Gauge Doughnut Chart
+  const gaugeCtx = document.getElementById('occupancyGaugeChart').getContext('2d');
+  new Chart(gaugeCtx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Occupied Beds', 'Available Surge Beds'],
+      datasets: [{
+        data: [8420, 1580],
+        backgroundColor: ['#ef4444', '#10b981'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom' }
+      },
+      cutout: '70%'
+    }
+  });
+});
+
+function filterHighOccupancy() {
+  document.querySelectorAll('.phc-bed-row').forEach(row => {
+    const rate = parseFloat(row.dataset.rate);
+    if (rate >= 90) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  });
+  showToast('Showing only high pressure PHCs (>90% occupancy)', 'warning');
+}
+</script>
+{% endblock %}

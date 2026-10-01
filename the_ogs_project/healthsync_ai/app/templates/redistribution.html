@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}Cross-District Resource Redistribution — HealthSync AI{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+  <div>
+    <h3 class="fw-bold text-navy mb-1">Cross-District Resource Redistribution Engine</h3>
+    <p class="text-muted small mb-0">Autonomous algorithmic matching between surplus storage hubs and deficit facilities facing imminent stock-outs.</p>
+  </div>
+  <div class="d-flex gap-2">
+    <span class="badge bg-purple-subtle text-purple border p-2 d-flex align-items-center gap-1" style="background-color: var(--ai-purple-light); color: var(--ai-purple);">
+      <i class="fa-solid fa-robot"></i> Human-In-The-Loop: Officer Approval Required
+    </span>
+  </div>
+</div>
+
+<!-- Surplus vs Deficit Matrix Row -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-6">
+    <div class="command-card p-4 h-100 border-success">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold text-success mb-0">
+          <i class="fa-solid fa-arrow-up-right-dots me-2"></i>Identified Surplus Hubs (>21 Days Runway)
+        </h6>
+        <span class="badge bg-success-subtle text-success">Zero Risk to Source</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-custom mb-0">
+          <thead>
+            <tr>
+              <th>Medicine</th>
+              <th>Surplus Facility</th>
+              <th>Current Buffer</th>
+              <th>Runway</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in surplus_items %}
+            <tr>
+              <td class="fw-semibold">{{ s.name }}</td>
+              <td>Durgapur Hub / Bokaro Unit</td>
+              <td class="fw-bold text-success">{{ s.current_stock | format }} {{ s.unit }}</td>
+              <td><span class="badge bg-success-subtle text-success">{{ s.stockout_days }} days</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="command-card p-4 h-100 border-danger">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold text-danger mb-0">
+          <i class="fa-solid fa-arrow-down-left-and-up-right-to-center me-2"></i>Identified Deficit Clinics (<48h Runway)
+        </h6>
+        <span class="badge bg-danger-subtle text-danger">Stock-out Imminent</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-custom mb-0">
+          <thead>
+            <tr>
+              <th>Medicine</th>
+              <th>Deficit Facility</th>
+              <th>Available Stock</th>
+              <th>Runway</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in deficit_items %}
+            <tr>
+              <td class="fw-semibold">{{ d.name }}</td>
+              <td>Bardhaman Outpost / Hazaribagh</td>
+              <td class="fw-bold text-danger">{{ d.current_stock | format }} {{ d.unit }}</td>
+              <td><span class="badge badge-critical">{{ d.stockout_days }} days</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= AI REDISTRIBUTION PROPOSALS ================= -->
+<div class="command-card p-4 mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h5 class="fw-bold mb-0 text-primary">
+        <i class="fa-solid fa-truck-medical me-2"></i>Active AI Rebalancing Proposals (Pending Officer Action)
+      </h5>
+      <p class="text-muted small mb-0">Algorithmic recommendation engine balances supply across districts with minimal transport logistics cost.</p>
+    </div>
+    <span class="badge bg-primary-subtle text-primary">{{ pending_redists|length }} Pending Proposals</span>
+  </div>
+
+  {% if pending_redists %}
+    <div class="row g-3">
+      {% for p in pending_redists %}
+      <div class="col-lg-6">
+        <div class="border rounded-3 p-3 bg-light h-100 d-flex flex-column justify-content-between">
+          <div>
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <div>
+                <span class="badge bg-primary">{{ p.medicine.name }}</span>
+                <span class="fw-bold text-dark fs-5 ms-2">{{ p.quantity | format }} {{ p.medicine.unit }}</span>
+              </div>
+              <span class="badge bg-purple-subtle text-purple border" style="background-color: var(--ai-purple-light); color: var(--ai-purple);">
+                <i class="fa-solid fa-sparkles me-1"></i>{{ p.confidence }}% AI Confidence
+              </span>
+            </div>
+
+            <div class="row g-2 small mb-3">
+              <div class="col-12">
+                <div class="p-2 bg-white rounded border">
+                  <div class="text-muted"><i class="fa-solid fa-arrow-up-from-bracket text-success me-1"></i><strong>SOURCE (SURPLUS):</strong> {{ p.source_phc }}</div>
+                  <div class="text-muted mt-1"><i class="fa-solid fa-arrow-down-to-bracket text-danger me-1"></i><strong>TARGET (DEFICIT):</strong> {{ p.target_phc }}</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-2 bg-white rounded border small text-muted mb-3" style="font-size: 0.8rem;">
+              <strong>Explainable Rationale:</strong> {{ p.reason }}
+            </div>
+          </div>
+
+          <div class="d-flex gap-2 justify-content-end pt-2 border-top">
+            <button class="btn btn-sm btn-outline-info" onclick="reviewModal('{{ p.id }}', '{{ p.source_phc }}', '{{ p.target_phc }}', '{{ p.medicine.name }}', {{ p.quantity }}, '{{ p.medicine.unit }}', '{{ p.reason | escape }}', {{ p.confidence }})">
+              <i class="fa-solid fa-magnifying-glass me-1"></i>Review
+            </button>
+            <button class="btn btn-sm btn-outline-danger" onclick="rejectRedistribution({{ p.id }})">
+              <i class="fa-solid fa-xmark me-1"></i>Reject
+            </button>
+            <button class="btn btn-sm btn-success" onclick="approveRedistribution({{ p.id }})">
+              <i class="fa-solid fa-check me-1"></i>Approve Transfer
+            </button>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="fa-solid fa-circle-check fs-1 text-success mb-2"></i>
+      <h5>All Regional Inventories Balanced</h5>
+      <p class="small mb-0">No active shortages requiring emergency cross-district transfers at this moment.</p>
+    </div>
+  {% endif %}
+</div>
+
+<!-- ================= TRANSFER HISTORY ARCHIVE ================= -->
+<div class="command-card">
+  <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-light">
+    <h6 class="fw-bold mb-0 text-muted"><i class="fa-solid fa-clock-rotate-left me-2"></i>Redistribution Execution History</h6>
+    <span class="badge bg-secondary-subtle text-secondary">Logged in SQLite Audit</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-custom mb-0">
+      <thead>
+        <tr>
+          <th>Transfer ID</th>
+          <th>Medicine</th>
+          <th>Source Hub</th>
+          <th>Target Facility</th>
+          <th>Quantity Transferred</th>
+          <th>Confidence</th>
+          <th>Decision Timestamp</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in history_redists %}
+        <tr>
+          <td class="fw-bold">#TR-{{ h.id }}</td>
+          <td>{{ h.medicine.name }}</td>
+          <td>{{ h.source_phc }}</td>
+          <td>{{ h.target_phc }}</td>
+          <td class="fw-bold text-dark">{{ h.quantity | format }} {{ h.medicine.unit }}</td>
+          <td>{{ h.confidence }}%</td>
+          <td class="small text-muted">{{ h.reviewed_at.strftime('%d %b %Y, %H:%M') if h.reviewed_at else h.created_at.strftime('%d %b %Y, %H:%M') }}</td>
+          <td>
+            {% if h.status == 'APPROVED' or h.status == 'COMPLETED' %}
+              <span class="badge bg-success-subtle text-success"><i class="fa-solid fa-check me-1"></i>{{ h.status }}</span>
+            {% elif h.status == 'REJECTED' %}
+              <span class="badge bg-danger-subtle text-danger"><i class="fa-solid fa-xmark me-1"></i>REJECTED</span>
+            {% else %}
+              <span class="badge bg-warning-subtle text-warning">{{ h.status }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ================= MODAL: REVIEW REDISTRIBUTION ================= -->
+<div class="modal fade" id="reviewModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-navy text-white" style="background-color: var(--navy-dark); color: white;">
+        <h5 class="modal-title fw-bold">
+          <i class="fa-solid fa-clipboard-check me-2 text-primary"></i>Decision Support Review: Transfer Assessment
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <span class="badge bg-primary fs-6" id="revMedName">Paracetamol 500mg</span>
+          <span class="badge bg-success fs-6" id="revQuantity">1,500 units</span>
+        </div>
+
+        <div class="p-3 bg-light rounded border mb-3">
+          <div class="small mb-2"><strong>Source:</strong> <span id="revSource"></span></div>
+          <div class="small mb-2"><strong>Target:</strong> <span id="revTarget"></span></div>
+          <div class="small mb-0"><strong>Confidence Score:</strong> <span class="badge bg-info text-dark" id="revConfidence">94%</span></div>
+        </div>
+
+        <div class="p-3 bg-white rounded border small mb-3">
+          <div class="fw-bold text-uppercase text-secondary mb-1">Safety Impact Assessment:</div>
+          <p class="text-muted mb-0" id="revReason"></p>
+        </div>
+
+        <div class="alert alert-info py-2 small mb-0">
+          <i class="fa-solid fa-shield-halved me-1"></i> Confirmation updates SQLite database stocks for both nodes and writes an immutable entry into the Command Audit Log.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-danger" id="modalRejectBtn">Reject</button>
+        <button type="button" class="btn btn-success" id="modalApproveBtn">Confirm & Approve Transfer</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentReviewId = null;
+
+function reviewModal(id, source, target, medName, qty, unit, reason, conf) {
+  currentReviewId = id;
+  document.getElementById('revMedName').textContent = medName;
+  document.getElementById('revQuantity').textContent = `${qty.toLocaleString()} ${unit}`;
+  document.getElementById('revSource').textContent = source;
+  document.getElementById('revTarget').textContent = target;
+  document.getElementById('revConfidence').textContent = `${conf}%`;
+  document.getElementById('revReason').textContent = reason;
+
+  const approveBtn = document.getElementById('modalApproveBtn');
+  approveBtn.onclick = function() {
+    approveRedistribution(currentReviewId);
+    bootstrap.Modal.getInstance(document.getElementById('reviewModal')).hide();
+  };
+
+  const rejectBtn = document.getElementById('modalRejectBtn');
+  rejectBtn.onclick = function() {
+    rejectRedistribution(currentReviewId);
+    bootstrap.Modal.getInstance(document.getElementById('reviewModal')).hide();
+  };
+
+  const modal = new bootstrap.Modal(document.getElementById('reviewModal'));
+  modal.show();
+}
+</script>
+{% endblock %}

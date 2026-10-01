@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}Medical Personnel Attendance & Staffing — HealthSync AI{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+  <div>
+    <h3 class="fw-bold text-navy mb-1">Medical Personnel Attendance & Staffing Telemetry</h3>
+    <p class="text-muted small mb-0">Frontline clinical workforce deployment tracking, cadre distribution, and workforce shortage alerts across all PHCs.</p>
+  </div>
+  <button class="btn btn-sm btn-outline-warning" onclick="filterUnderstaffed()">
+    <i class="fa-solid fa-triangle-exclamation me-1"></i> View Understaffed PHCs (<85%)
+  </button>
+</div>
+
+<!-- Understaffed Warning Alert -->
+{% if understaffed_phcs %}
+<div class="alert alert-warning d-flex align-items-center mb-4 shadow-sm" role="alert">
+  <i class="fa-solid fa-user-xmark fs-3 me-3 text-warning"></i>
+  <div>
+    <h6 class="alert-heading fw-bold mb-1">FRONT-LINE STAFF SHORTAGE ALERT</h6>
+    <span>{{ understaffed_phcs|length }} Primary Health Centres have reported clinical attendance below the 85% operational standard:
+      {% for up in understaffed_phcs %}
+        <strong>{{ up.name }} ({{ up.staff_attendance_rate }}%)</strong>{% if not loop.last %}, {% endif %}
+      {% endfor %}
+      — Clinical re-allocation or locum doctor deployment recommended.
+    </span>
+  </div>
+</div>
+{% endif %}
+
+<!-- KPI Cadre Cards Row -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3 col-sm-6">
+    <div class="command-card kpi-card">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="kpi-title">National Attendance Rate</div>
+          <div class="kpi-value text-primary">{{ attendance_rate }}%</div>
+          <div class="small text-success fw-semibold mt-1">
+            <i class="fa-solid fa-circle-check me-1"></i>{{ present_staff }} of {{ total_staff }} on duty
+          </div>
+        </div>
+        <div class="kpi-icon bg-primary-subtle text-primary">
+          <i class="fa-solid fa-clipboard-user"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-sm-6">
+    <div class="command-card kpi-card kpi-success">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="kpi-title">Doctors on Duty</div>
+          <div class="kpi-value text-success">{{ doctors }}</div>
+          <div class="small text-muted fw-semibold mt-1">General Physicians & MOs</div>
+        </div>
+        <div class="kpi-icon bg-success-subtle text-success">
+          <i class="fa-solid fa-user-doctor"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-sm-6">
+    <div class="command-card kpi-card kpi-warning">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="kpi-title">Nurses & ANMs on Duty</div>
+          <div class="kpi-value text-warning">{{ nurses }}</div>
+          <div class="small text-muted fw-semibold mt-1">Frontline Caregivers & GNM</div>
+        </div>
+        <div class="kpi-icon bg-warning-subtle text-warning">
+          <i class="fa-solid fa-user-nurse"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3 col-sm-6">
+    <div class="command-card kpi-card kpi-ai">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="kpi-title">Technicians & Support</div>
+          <div class="kpi-value" style="color: var(--ai-purple);">{{ technicians + others }}</div>
+          <div class="small text-muted fw-semibold mt-1">Lab, Pharmacists & Admin</div>
+        </div>
+        <div class="kpi-icon" style="background-color: var(--ai-purple-light); color: var(--ai-purple);">
+          <i class="fa-solid fa-microscope"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-7">
+    <div class="command-card p-4 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h5 class="fw-bold mb-0">Daily Staff Attendance Stability (14 Days)</h5>
+          <p class="text-muted small mb-0">Daily presence percentage across the Primary Health network.</p>
+        </div>
+      </div>
+      <div style="height: 260px; position: relative;">
+        <canvas id="staffTrendChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="command-card p-4 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h5 class="fw-bold mb-0">Workforce Cadre Distribution</h5>
+          <p class="text-muted small mb-0">Personnel breakdown by clinical discipline</p>
+        </div>
+      </div>
+      <div style="height: 220px; position: relative;">
+        <canvas id="cadreDoughnutChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Facility Staff Attendance Registry Table -->
+<div class="command-card">
+  <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+    <h6 class="fw-bold mb-0">PHC Staff Attendance Registry</h6>
+    <span class="badge bg-secondary-subtle text-secondary">{{ phcs|length }} Centres Telemetry</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-custom mb-0">
+      <thead>
+        <tr>
+          <th>PHC Facility</th>
+          <th>District</th>
+          <th>Sanctioned Staff</th>
+          <th>Present Today</th>
+          <th>Absent</th>
+          <th>Attendance Rate</th>
+          <th>Workforce Health Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in phcs %}
+        <tr class="phc-staff-row" data-rate="{{ p.staff_attendance_rate }}">
+          <td class="fw-bold text-dark">{{ p.name }} <span class="badge bg-light text-muted border ms-1">{{ p.phc_code }}</span></td>
+          <td>{{ p.district }}</td>
+          <td>{{ p.staff_total }} personnel</td>
+          <td class="fw-bold text-success">{{ p.staff_present }}</td>
+          <td class="fw-semibold text-danger">{{ p.staff_total - p.staff_present }}</td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <span class="fw-bold">{{ p.staff_attendance_rate }}%</span>
+            </div>
+            <div class="progress mt-1" style="height: 5px; width: 120px;">
+              {% if p.staff_attendance_rate < 85 %}
+                <div class="progress-bar bg-danger" style="width: {{ p.staff_attendance_rate }}%;"></div>
+              {% else %}
+                <div class="progress-bar bg-success" style="width: {{ p.staff_attendance_rate }}%;"></div>
+              {% endif %}
+            </div>
+          </td>
+          <td>
+            {% if p.staff_attendance_rate < 85 %}
+              <span class="badge badge-critical"><i class="fa-solid fa-triangle-exclamation me-1"></i>BELOW THRESHOLD</span>
+            {% else %}
+              <span class="badge badge-low"><i class="fa-solid fa-circle-check me-1"></i>ADEQUATE STAFFING</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Staff 14-day Trend Chart
+  const trendCtx = document.getElementById('staffTrendChart').getContext('2d');
+  new Chart(trendCtx, {
+    type: 'line',
+    data: {
+      labels: ['14d ago', '12d ago', '10d ago', '8d ago', '6d ago', '4d ago', '2d ago', 'Today'],
+      datasets: [
+        {
+          label: 'Attendance %',
+          data: [92.1, 91.5, 90.8, 93.2, 91.0, 92.4, 91.7, 91.0],
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.08)',
+          fill: true,
+          tension: 0.3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { min: 80, max: 100, title: { display: true, text: 'Attendance Rate (%)' } }
+      }
+    }
+  });
+
+  // Cadre Doughnut Chart
+  const cadreCtx = document.getElementById('cadreDoughnutChart').getContext('2d');
+  new Chart(cadreCtx, {
+    type: 'pie',
+    data: {
+      labels: ['Doctors (MO/Specialists)', 'Nurses & ANMs', 'Lab & Pharmacy Techs', 'Support & Admin'],
+      datasets: [{
+        data: [{{ doctors }}, {{ nurses }}, {{ technicians }}, {{ others }}],
+        backgroundColor: ['#0284c7', '#10b981', '#f59e0b', '#7928ca']
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } }
+      }
+    }
+  });
+});
+
+function filterUnderstaffed() {
+  document.querySelectorAll('.phc-staff-row').forEach(row => {
+    const rate = parseFloat(row.dataset.rate);
+    if (rate < 85) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  });
+  showToast('Filtering for facilities with attendance below 85% standard', 'warning');
+}
+</script>
+{% endblock %}

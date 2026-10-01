@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}404 — Telemetry Node Not Found{% endblock %}
+
+{% block content %}
+<div class="command-card p-5 text-center my-5">
+  <div class="mb-3">
+    <i class="fa-solid fa-satellite-dish fs-1 text-primary opacity-50"></i>
+  </div>
+  <h1 class="fw-bold text-navy display-4">404</h1>
+  <h4 class="fw-semibold text-dark mb-2">Telemetry Route / Resource Not Found</h4>
+  <p class="text-muted small mx-auto mb-4" style="max-width: 480px;">
+    The requested health centre telemetry resource, medicine inventory record, or command node does not exist in the active national registry.
+  </p>
+  <div>
+    <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary">
+      <i class="fa-solid fa-house-chimney-medical me-1"></i> Return to Command Center Dashboard
+    </a>
+  </div>
+</div>
+{% endblock %}

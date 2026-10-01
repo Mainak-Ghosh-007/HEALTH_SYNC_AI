@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}National Health Command Center{% endblock %} — HealthSync AI</title>
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  
+  <!-- Font Awesome 6 Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  
+  <!-- Leaflet CSS for Maps -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  
+  <!-- Custom Command Center Stylesheet -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  
+  <!-- Chart.js 4 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">
+        <i class="fa-solid fa-heart-pulse"></i>
+      </div>
+      <div>
+        <div class="brand-title">HEALTHSYNC AI</div>
+        <div class="brand-subtitle">Command Center</div>
+      </div>
+    </div>
+
+    <div class="sidebar-menu">
+      <div class="menu-heading">Operational Hub</div>
+      <div class="nav-item">
+        <a href="{{ url_for('main.dashboard') }}" class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}">
+          <i class="fa-solid fa-chart-line"></i>
+          <span>Dashboard</span>
+        </a>
+      </div>
+
+      <div class="menu-heading">Resources & Facilities</div>
+      <div class="nav-item">
+        <a href="{{ url_for('main.phcs_view') }}" class="nav-link {% if request.endpoint == 'main.phcs_view' %}active{% endif %}">
+          <i class="fa-solid fa-hospital"></i>
+          <span>PHC Network</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="{{ url_for('main.medicines_view') }}" class="nav-link {% if request.endpoint == 'main.medicines_view' %}active{% endif %}">
+          <i class="fa-solid fa-pills"></i>
+          <span>Medicine Inventory</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="{{ url_for('main.patients_view') }}" class="nav-link {% if request.endpoint == 'main.patients_view' %}active{% endif %}">
+          <i class="fa-solid fa-users"></i>
+          <span>Patient Footfall</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="{{ url_for('main.beds_view') }}" class="nav-link {% if request.endpoint == 'main.beds_view' %}active{% endif %}">
+          <i class="fa-solid fa-bed-pulse"></i>
+          <span>Bed Availability</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="{{ url_for('main.staff_view') }}" class="nav-link {% if request.endpoint == 'main.staff_view' %}active{% endif %}">
+          <i class="fa-solid fa-user-doctor"></i>
+          <span>Staff Attendance</span>
+        </a>
+      </div>
+
+      <div class="menu-heading">AI Decision Intelligence</div>
+      <div class="nav-item">
+        <a href="{{ url_for('main.forecast_view') }}" class="nav-link {% if request.endpoint == 'main.forecast_view' %}active{% endif %}">
+          <i class="fa-solid fa-brain"></i>
+          <span>AI Demand Forecast</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="{{ url_for('main.alerts_view') }}" class="nav-link {% if request.endpoint == 'main.alerts_view' %}active{% endif %}">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span>Early Warnings</span>
+          <span class="badge bg-danger sidebar-badge">126</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="{{ url_for('main.redistribution_view') }}" class="nav-link {% if request.endpoint == 'main.redistribution_view' %}active{% endif %}">
+          <i class="fa-solid fa-truck-medical"></i>
+          <span>Redistribution</span>
+          <span class="badge bg-primary sidebar-badge">AI</span>
+        </a>
+      </div>
+      <div class="nav-item">
+        <a href="{{ url_for('main.federated_view') }}" class="nav-link {% if request.endpoint == 'main.federated_view' %}active{% endif %}">
+          <i class="fa-solid fa-network-wired"></i>
+          <span>Federated AI</span>
+        </a>
+      </div>
+
+      <div class="menu-heading">Governance</div>
+      <div class="nav-item">
+        <a href="{{ url_for('main.reports_view') }}" class="nav-link {% if request.endpoint == 'main.reports_view' %}active{% endif %}">
+          <i class="fa-solid fa-file-shield"></i>
+          <span>Reports & Audit</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="officer-card">
+        <div class="officer-avatar">
+          {{ current_user_name[:2].upper() }}
+        </div>
+        <div class="flex-grow-1 overflow-hidden">
+          <div class="text-white small fw-bold text-truncate">{{ current_user_name }}</div>
+          <div class="text-muted" style="font-size: 0.7rem;">{{ current_user_role }}</div>
+        </div>
+        <a href="{{ url_for('auth.logout') }}" class="text-muted text-hover-light" title="Sign Out">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN WRAPPER ================= -->
+  <div class="main-wrapper">
+    <!-- Top Header -->
+    <header class="top-header">
+      <div class="d-flex align-items-center">
+        <button class="btn btn-outline-secondary d-lg-none me-3" id="sidebarToggle">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="header-title-box">
+          <div class="d-flex align-items-center gap-2">
+            <h5>HEALTHSYNC AI</h5>
+            <span class="badge-demo">DEMO / PROTOTYPE</span>
+          </div>
+          <p>National Health Command Center — Ministry of Health & Family Welfare</p>
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center gap-3">
+        <div class="badge-live d-none d-md-inline-flex">
+          <span class="pulse-dot"></span>
+          <span>LIVE SYSTEM</span>
+        </div>
+        
+        <div class="text-muted small d-none d-sm-block">
+          <i class="fa-regular fa-clock me-1 text-primary"></i>
+          <span id="liveClock">Loading time...</span>
+        </div>
+
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-light text-dark border d-flex align-items-center gap-2 rounded-pill px-3" data-bs-toggle="dropdown">
+            <i class="fa-solid fa-user-shield text-primary"></i>
+            <span class="fw-semibold small d-none d-md-inline">{{ current_user_name }}</span>
+            <i class="fa-solid fa-chevron-down small text-muted"></i>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+            <li><h6 class="dropdown-header">{{ current_user_email }}</h6></li>
+            <li><span class="dropdown-item-text text-muted small">Role: {{ current_user_role }}</span></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="{{ url_for('main.reports_view') }}"><i class="fa-solid fa-clock-rotate-left me-2"></i>Audit Logs</a></li>
+            <li><a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}"><i class="fa-solid fa-arrow-right-from-bracket me-2"></i>Sign Out</a></li>
+          </ul>
+        </div>
+      </div>
+    </header>
+
+    <!-- Flash Messages Container -->
+    <div class="px-4 pt-3">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+              <i class="fa-solid fa-circle-info me-2"></i>{{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+    </div>
+
+    <!-- Main Content Body -->
+    <main class="content-body">
+      {% block content %}{% endblock %}
+    </main>
+
+    <!-- Command Footer -->
+    <footer class="command-footer d-flex flex-wrap justify-content-between align-items-center">
+      <div>
+        <strong>HEALTHSYNC AI</strong> — National Healthcare Resource Intelligence & Decision-Support Platform.
+        <span class="d-block d-md-inline text-muted mt-1 mt-md-0 ms-md-2">
+          (Simulated Prototype Architecture for Hackathon Demonstration)
+        </span>
+      </div>
+      <div class="mt-2 mt-md-0">
+        <span class="badge bg-secondary-subtle text-secondary me-2">BRICS Federation Protocol v1.3</span>
+        <span>Secure Local SQLite Store</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container-custom"></div>
+
+  <!-- Bootstrap 5 JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Leaflet JS for Maps -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- Main Application Script -->
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

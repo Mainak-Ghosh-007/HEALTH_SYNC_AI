@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Federated AI & BRICS Collaborative Architecture — HealthSync AI{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+  <div>
+    <h3 class="fw-bold text-navy mb-1">Federated AI Architecture & Distributed Learning</h3>
+    <p class="text-muted small mb-0">Privacy-preserving multi-facility model training. Local clinical telemetry remains strictly on edge devices while aggregated gradients build collective national intelligence.</p>
+  </div>
+  <div class="d-flex gap-2 align-items-center">
+    <button class="btn btn-primary" id="btnStartFederatedRound" onclick="triggerFederatedRound()">
+      <span class="spinner-border spinner-border-sm me-1 d-none" id="federatedSpinner"></span>
+      <i class="fa-solid fa-play me-1"></i> Start Federated Round
+    </button>
+  </div>
+</div>
+
+<!-- ================= FEDERATED ARCHITECTURE OVERVIEW BANNER ================= -->
+<div class="command-card p-4 mb-4 border-purple" style="border-left: 4px solid var(--ai-purple);">
+  <div class="row align-items-center">
+    <div class="col-lg-8">
+      <div class="badge bg-purple-subtle text-purple mb-2 fw-bold" style="background-color: var(--ai-purple-light); color: var(--ai-purple);">
+        <i class="fa-solid fa-shield-halved me-1"></i> PRIVACY-PRESERVING ARCHITECTURE PROTOCOL
+      </div>
+      <h5 class="fw-bold mb-2">Decentralized Machine Learning Without Data Movement</h5>
+      <p class="text-muted small mb-2">
+        Patient privacy is protected by design: <strong>No electronic patient medical records leave any Primary Health Centre.</strong> 
+        Each participating edge node trains a localized logistic/regression model on local consumption registries, calculates parameter updates (gradients), adds differential privacy noise (ε=1.2, δ=10⁻⁵), and transmits only encrypted weights to the National Aggregator.
+      </p>
+      <div class="badge-demo">
+        <i class="fa-solid fa-circle-info me-1"></i> Federated AI Simulation Prototype — Demonstrating multi-node consensus with simulated parameter transfers.
+      </div>
+    </div>
+    <div class="col-lg-4 text-center mt-3 mt-lg-0">
+      <div class="p-3 bg-light rounded border">
+        <div class="text-muted small fw-semibold text-uppercase">Current Model State</div>
+        <div class="fs-2 fw-bold text-primary mt-1">{{ state.model_version }}</div>
+        <div class="text-success small fw-bold">
+          <i class="fa-solid fa-chart-line me-1"></i>{{ state.global_accuracy }}% Global Accuracy
+        </div>
+        <div class="text-muted small mt-1">Round {{ state.current_round }} • {{ state.participating_nodes_count }} Connected PHCs</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= ARCHITECTURAL SCHEMATIC (EDGE -> AGGREGATION -> GLOBAL) ================= -->
+<div class="command-card p-4 mb-4">
+  <h5 class="fw-bold mb-3"><i class="fa-solid fa-diagram-project me-2 text-primary"></i>Distributed Federated Pipeline</h5>
+  
+  <div class="row g-3 text-center align-items-center">
+    <!-- Step 1: Edge Nodes -->
+    <div class="col-lg-5">
+      <div class="p-3 bg-light rounded border text-start">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="fw-bold small text-uppercase text-secondary">Step 1: Edge Nodes (5 PHCs)</span>
+          <span class="badge bg-success-subtle text-success">Local Training</span>
+        </div>
+        <div class="small text-muted mb-2">Each centre computes localized parameter weights on local clinical demand.</div>
+        <div class="d-flex flex-column gap-2">
+          {% for node in state.local_nodes %}
+          <div class="p-2 bg-white rounded border d-flex justify-content-between align-items-center small">
+            <div>
+              <strong>{{ node.node_id }}</strong> ({{ node.name }})
+              <div class="text-muted" style="font-size: 0.7rem;">{{ node.data_samples }} samples • {{ node.privacy_status }}</div>
+            </div>
+            <span class="badge bg-primary-subtle text-primary">{{ node.local_accuracy }}% Acc</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Arrow 1 -->
+    <div class="col-lg-1 d-none d-lg-block text-primary fs-3">
+      <i class="fa-solid fa-arrow-right"></i>
+    </div>
+
+    <!-- Step 2: Secure Aggregator -->
+    <div class="col-lg-3">
+      <div class="p-4 bg-light rounded border text-center h-100 d-flex flex-column justify-content-center">
+        <div class="mb-2">
+          <i class="fa-solid fa-arrows-split-up-and-left fs-1 text-primary"></i>
+        </div>
+        <h6 class="fw-bold mb-1">Step 2: Federated Aggregation</h6>
+        <div class="badge bg-info text-dark mb-2">FedAvg Protocol</div>
+        <p class="small text-muted mb-0">
+          Encrypted gradient aggregation with homomorphic secure enclave verification. Zero raw data exposure.
+        </p>
+      </div>
+    </div>
+
+    <!-- Arrow 2 -->
+    <div class="col-lg-1 d-none d-lg-block text-primary fs-3">
+      <i class="fa-solid fa-arrow-right"></i>
+    </div>
+
+    <!-- Step 3: Global Model -->
+    <div class="col-lg-2">
+      <div class="p-4 bg-purple-subtle rounded border text-center h-100 d-flex flex-column justify-content-center" style="background-color: var(--ai-purple-light);">
+        <div class="mb-2">
+          <i class="fa-solid fa-brain fs-1" style="color: var(--ai-purple);"></i>
+        </div>
+        <h6 class="fw-bold mb-1" style="color: var(--ai-purple);">Step 3: Global Model</h6>
+        <div class="fw-bold text-dark fs-5">{{ state.model_version }}</div>
+        <div class="badge bg-success mt-1">{{ state.global_accuracy }}% Accuracy</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= ROUND PROGRESS CHART & HISTORY ================= -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-6">
+    <div class="command-card p-4 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">Model Accuracy Convergence</h5>
+        <span class="badge bg-secondary-subtle text-secondary">Historical Rounds</span>
+      </div>
+      <div style="height: 250px; position: relative;">
+        <canvas id="federatedConvergenceChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="command-card p-4 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">Federated Rounds Log</h5>
+        <span class="badge bg-primary-subtle text-primary">{{ state.history|length }} Completed Rounds</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-custom mb-0">
+          <thead>
+            <tr>
+              <th>Round #</th>
+              <th>Nodes</th>
+              <th>Model Version</th>
+              <th>Global Accuracy</th>
+              <th>Status</th>
+              <th>Timestamp</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in state.history %}
+            <tr>
+              <td class="fw-bold">Round {{ r.round_number }}</td>
+              <td>{{ r.participating_nodes }} PHCs</td>
+              <td><code>{{ r.model_version }}</code></td>
+              <td class="fw-bold text-success">{{ r.accuracy }}%</td>
+              <td><span class="badge bg-success-subtle text-success">{{ r.status }}</span></td>
+              <td class="small text-muted">{{ r.created_at }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= INNOVATION 8: BRICS FEDERATED ARCHITECTURE ================= -->
+<div class="command-card p-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+    <div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-info text-dark fw-bold"><i class="fa-solid fa-earth-americas me-1"></i>INNOVATION 8</span>
+        <h4 class="fw-bold mb-0">BRICS-Ready Federated Healthcare Layer</h4>
+      </div>
+      <p class="text-muted small mb-0">Conceptual cross-border predictive collaboration for epidemic surge intelligence among partner nations.</p>
+    </div>
+    <span class="badge-demo">Architectural Blueprint / Demonstration</span>
+  </div>
+
+  <div class="alert alert-light border small text-muted mb-4">
+    <i class="fa-solid fa-circle-exclamation text-primary me-2"></i>
+    <strong>Conceptual Demonstration:</strong> Raw medical data remains strictly within national borders. This architectural design demonstrates how secure cross-border federated learning allows partner nations to collaboratively predict cross-continental disease trajectories (influenza, dengue, antimicrobial resistance) without data sovereignty infringement.
+  </div>
+
+  <div class="row g-3">
+    {% for b in state.brics_nodes %}
+    <div class="col-lg">
+      <div class="node-card h-100 d-flex flex-column justify-content-between">
+        <div>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="fs-3">{{ b.flag }}</span>
+            <span class="badge bg-light text-muted border small">{{ b.status }}</span>
+          </div>
+          <h6 class="fw-bold mb-1">{{ b.country }}</h6>
+          <div class="text-primary small fw-semibold mb-2">{{ b.system_name }}</div>
+          <div class="small text-muted mb-1"><strong>Network Scale:</strong> {{ b.participating_centres }}</div>
+          <div class="small text-muted mb-1"><strong>Modality:</strong> {{ b.data_modality }}</div>
+        </div>
+        <div class="mt-2 pt-2 border-top small text-muted" style="font-size: 0.7rem;">
+          <i class="fa-solid fa-key text-secondary me-1"></i>{{ b.privacy_protocol }}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const chartCanvas = document.getElementById('federatedConvergenceChart');
+  if (!chartCanvas) return;
+
+  const ctx = chartCanvas.getContext('2d');
+  
+  // Historical accuracy data from Jinja context
+  const labels = [{% for r in state.history %}"Round {{ r.round_number }}",{% endfor %}];
+  const accData = [{% for r in state.history %}{{ r.accuracy }},{% endfor %}];
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Global Model Accuracy (%)',
+        data: accData,
+        borderColor: '#7928ca',
+        backgroundColor: 'rgba(121, 40, 202, 0.1)',
+        borderWidth: 3,
+        pointBackgroundColor: '#7928ca',
+        pointRadius: 5,
+        fill: true,
+        tension: 0.2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { min: 80, max: 100, title: { display: true, text: 'Model Accuracy (%)' } }
+      }
+    }
+  });
+});
+</script>
+{% endblock %}

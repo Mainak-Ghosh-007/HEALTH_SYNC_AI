@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+
+{% block title %}PHC Network Management — HealthSync AI{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+  <div>
+    <h3 class="fw-bold text-navy mb-1">Primary Health Centre Network</h3>
+    <p class="text-muted small mb-0">Operational registry, telemetry status, bed capacity, and staffing across all participating health facilities.</p>
+  </div>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPhcModal">
+    <i class="fa-solid fa-plus me-1"></i> Register New PHC
+  </button>
+</div>
+
+<!-- Filters Bar -->
+<div class="command-card p-3 mb-4">
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="input-group">
+        <span class="input-group-text bg-white text-muted border-end-0"><i class="fa-solid fa-magnifying-glass"></i></span>
+        <input type="text" id="phcSearchInput" class="form-control border-start-0" placeholder="Search by PHC code, name, or district...">
+      </div>
+    </div>
+    <div class="col-md-3">
+      <select id="districtFilter" class="form-select">
+        <option value="">All Districts</option>
+        {% for d in districts %}
+          <option value="{{ d }}">{{ d }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <select id="statusFilter" class="form-select">
+        <option value="">All Statuses</option>
+        <option value="NORMAL">NORMAL</option>
+        <option value="WATCH">WATCH</option>
+        <option value="WARNING">WARNING</option>
+        <option value="CRITICAL">CRITICAL</option>
+      </select>
+    </div>
+    <div class="col-md-2 text-md-end">
+      <button class="btn btn-outline-secondary w-100" onclick="resetFilters()">
+        <i class="fa-solid fa-rotate-left me-1"></i> Reset
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- PHC Table -->
+<div class="command-card">
+  <div class="table-responsive">
+    <table class="table table-custom mb-0" id="phcsTable">
+      <thead>
+        <tr>
+          <th>PHC Code</th>
+          <th>Centre Name</th>
+          <th>District / State</th>
+          <th>Bed Capacity</th>
+          <th>Occupancy</th>
+          <th>Patients Today</th>
+          <th>Staff Present</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in phcs %}
+        <tr class="phc-row" data-district="{{ p.district }}" data-status="{{ p.status }}">
+          <td class="fw-bold text-primary">{{ p.phc_code }}</td>
+          <td>
+            <div class="fw-semibold text-dark">{{ p.name }}</div>
+            <div class="text-muted small" style="font-size: 0.72rem;">Lat: {{ p.latitude }}, Lon: {{ p.longitude }}</div>
+          </td>
+          <td>
+            <div>{{ p.district }}</div>
+            <div class="text-muted small">{{ p.state }}</div>
+          </td>
+          <td>{{ p.total_beds }} beds</td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <span class="small fw-semibold">{{ p.occupied_beds }}/{{ p.total_beds }} ({{ p.bed_occupancy_rate }}%)</span>
+            </div>
+            <div class="progress mt-1" style="height: 4px; width: 110px;">
+              {% if p.bed_occupancy_rate >= 90 %}
+                <div class="progress-bar bg-danger" style="width: {{ p.bed_occupancy_rate }}%;"></div>
+              {% elif p.bed_occupancy_rate >= 75 %}
+                <div class="progress-bar bg-warning" style="width: {{ p.bed_occupancy_rate }}%;"></div>
+              {% else %}
+                <div class="progress-bar bg-success" style="width: {{ p.bed_occupancy_rate }}%;"></div>
+              {% endif %}
+            </div>
+          </td>
+          <td class="fw-semibold">{{ p.patients_today }}</td>
+          <td>
+            <span class="small">{{ p.staff_present }}/{{ p.staff_total }}</span>
+            <div class="text-muted small">({{ p.staff_attendance_rate }}%)</div>
+          </td>
+          <td>
+            {% if p.status == 'CRITICAL' %}
+              <span class="badge badge-critical">CRITICAL</span>
+            {% elif p.status == 'WARNING' %}
+              <span class="badge badge-high">WARNING</span>
+            {% elif p.status == 'WATCH' %}
+              <span class="badge badge-medium">WATCH</span>
+            {% else %}
+              <span class="badge badge-low">NORMAL</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-primary" onclick="viewPhcDetails({{ p.id }})">
+              <i class="fa-solid fa-eye me-1"></i>View
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ================= MODAL: ADD PHC ================= -->
+<div class="modal fade" id="addPhcModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold"><i class="fa-solid fa-hospital me-2 text-primary"></i>Register Primary Health Centre</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="addPhcForm">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">PHC Code</label>
+              <input type="text" class="form-control" name="phc_code" placeholder="e.g. PHC-055" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Centre Name</label>
+              <input type="text" class="form-control" name="name" placeholder="e.g. Santaldih Community PHC" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">District</label>
+              <input type="text" class="form-control" name="district" placeholder="e.g. Purulia" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">State</label>
+              <input type="text" class="form-control" name="state" value="West Bengal" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Total Beds</label>
+              <input type="number" class="form-control" name="total_beds" value="25" min="5" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Currently Occupied</label>
+              <input type="number" class="form-control" name="occupied_beds" value="12" min="0" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Total Staff</label>
+              <input type="number" class="form-control" name="staff_total" value="14" min="1" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Staff Present</label>
+              <input type="number" class="form-control" name="staff_present" value="13" min="0" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Latitude</label>
+              <input type="number" step="0.0001" class="form-control" name="latitude" value="23.4500">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Longitude</label>
+              <input type="number" step="0.0001" class="form-control" name="longitude" value="86.9000">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save to SQLite Database</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: VIEW PHC DETAILS ================= -->
+<div class="modal fade" id="viewPhcModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold" id="viewPhcTitle">PHC Details</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="viewPhcBody">
+        <div class="text-center py-3 text-muted">Loading telemetry details...</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.getElementById('phcSearchInput');
+  const districtFilter = document.getElementById('districtFilter');
+  const statusFilter = document.getElementById('statusFilter');
+
+  function applyFilters() {
+    const term = searchInput.value.toLowerCase();
+    const dist = districtFilter.value;
+    const stat = statusFilter.value;
+
+    document.querySelectorAll('.phc-row').forEach(row => {
+      const text = row.textContent.toLowerCase();
+      const rowDist = row.dataset.district;
+      const rowStat = row.dataset.status;
+
+      const matchesSearch = text.includes(term);
+      const matchesDist = !dist || rowDist === dist;
+      const matchesStat = !stat || rowStat === stat;
+
+      if (matchesSearch && matchesDist && matchesStat) {
+        row.style.display = '';
+      } else {
+        row.style.display = 'none';
+      }
+    });
+  }
+
+  searchInput.addEventListener('input', applyFilters);
+  districtFilter.addEventListener('change', applyFilters);
+  statusFilter.addEventListener('change', applyFilters);
+
+  window.resetFilters = function() {
+    searchInput.value = '';
+    districtFilter.value = '';
+    statusFilter.value = '';
+    applyFilters();
+  };
+
+  // Add PHC Form AJAX Submission
+  const addForm = document.getElementById('addPhcForm');
+  addForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(addForm);
+    const data = Object.fromEntries(formData.entries());
+
+    fetch('/api/phcs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+    .then(res => res.json())
+    .then(resData => {
+      if (resData.success) {
+        showToast(resData.message, 'success');
+        bootstrap.Modal.getInstance(document.getElementById('addPhcModal')).hide();
+        setTimeout(() => window.location.reload(), 1200);
+      } else {
+        showToast(resData.error || 'Failed to create PHC', 'danger');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      showToast('Error registering PHC', 'danger');
+    });
+  });
+});
+
+function viewPhcDetails(id) {
+  const modal = new bootstrap.Modal(document.getElementById('viewPhcModal'));
+  modal.show();
+
+  fetch(`/api/phcs/${id}`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        const p = d.phc;
+        document.getElementById('viewPhcTitle').textContent = `${p.phc_code} — ${p.name}`;
+        document.getElementById('viewPhcBody').innerHTML = `
+          <div class="row g-2 mb-3">
+            <div class="col-6"><strong>District:</strong> ${p.district}</div>
+            <div class="col-6"><strong>State:</strong> ${p.state}</div>
+            <div class="col-6"><strong>Status:</strong> <span class="badge badge-low">${p.status}</span></div>
+            <div class="col-6"><strong>Patients Today:</strong> ${p.patients_today}</div>
+          </div>
+          <hr>
+          <div class="mb-2"><strong>Bed Capacity:</strong> ${p.occupied_beds} occupied / ${p.total_beds} total (${p.bed_occupancy_rate}%)</div>
+          <div class="progress mb-3" style="height: 8px;">
+            <div class="progress-bar bg-primary" style="width: ${p.bed_occupancy_rate}%;"></div>
+          </div>
+          <div class="mb-2"><strong>Staff Present:</strong> ${p.staff_present} of ${p.staff_total} (${p.staff_attendance_rate}%)</div>
+          <div class="progress mb-3" style="height: 8px;">
+            <div class="progress-bar bg-success" style="width: ${p.staff_attendance_rate}%;"></div>
+          </div>
+          <div class="small text-muted"><strong>Geo-coordinates:</strong> ${p.latitude}, ${p.longitude}</div>
+        `;
+      }
+    });
+}
+</script>
+{% endblock %}

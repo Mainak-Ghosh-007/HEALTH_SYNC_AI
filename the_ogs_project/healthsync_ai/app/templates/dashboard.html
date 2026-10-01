@@ -1,0 +1,751 @@
+{% extends "base.html" %}
+
+{% block title %}National Health Command Center — HealthSync AI{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+  <div>
+    <h3 class="fw-bold text-navy mb-1">National Command Overview</h3>
+    <p class="text-muted small mb-0">Real-time resource telemetry, predictive risk assessments, and autonomous redistribution advisories across 12,540 PHCs.</p>
+  </div>
+  <div class="d-flex align-items-center gap-2 mt-3 mt-md-0">
+    <button class="btn btn-sm btn-outline-secondary" onclick="window.location.reload()">
+      <i class="fa-solid fa-arrows-rotate me-1"></i> Sync Telemetry
+    </button>
+    <a href="{{ url_for('main.forecast_view') }}" class="btn btn-sm btn-primary">
+      <i class="fa-solid fa-sliders me-1"></i> Open What-If Simulator
+    </a>
+  </div>
+</div>
+
+<!-- ================= 1. TOP 5 KPI CARDS ================= -->
+<div class="row g-3 mb-4">
+  <div class="col-xl col-md-4 col-sm-6">
+    <div class="command-card kpi-card">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="kpi-title">PHCs Connected</div>
+          <div class="kpi-value">{{ stats.phcs_connected }}</div>
+          <div class="small text-success fw-semibold mt-1">
+            <i class="fa-solid fa-signal me-1"></i>100% Online
+          </div>
+        </div>
+        <div class="kpi-icon bg-primary-subtle text-primary">
+          <i class="fa-solid fa-hospital"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl col-md-4 col-sm-6">
+    <div class="command-card kpi-card kpi-danger">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="kpi-title">Medicine Alerts</div>
+          <div class="kpi-value text-danger">{{ stats.medicine_alerts }}</div>
+          <div class="small text-danger fw-semibold mt-1">
+            <i class="fa-solid fa-arrow-trend-up me-1"></i>18 Critical (<48h)
+          </div>
+        </div>
+        <div class="kpi-icon bg-danger-subtle text-danger">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl col-md-4 col-sm-6">
+    <div class="command-card kpi-card kpi-warning">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="kpi-title">Critical PHCs</div>
+          <div class="kpi-value text-warning">{{ stats.critical_phcs }}</div>
+          <div class="small text-warning fw-semibold mt-1">
+            <i class="fa-solid fa-circle-exclamation me-1"></i>High stockout risk
+          </div>
+        </div>
+        <div class="kpi-icon bg-warning-subtle text-warning">
+          <i class="fa-solid fa-bed-pulse"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl col-md-6 col-sm-6">
+    <div class="command-card kpi-card kpi-success">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="kpi-title">Available Beds</div>
+          <div class="kpi-value text-success">{{ stats.available_beds }}</div>
+          <div class="small text-muted fw-semibold mt-1">
+            84.2% National Occupancy
+          </div>
+        </div>
+        <div class="kpi-icon bg-success-subtle text-success">
+          <i class="fa-solid fa-bed"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl col-md-6 col-sm-6">
+    <div class="command-card kpi-card kpi-ai">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="kpi-title">Staff Attendance</div>
+          <div class="kpi-value" style="color: var(--ai-purple);">{{ stats.staff_attendance }}</div>
+          <div class="small text-success fw-semibold mt-1">
+            <i class="fa-solid fa-user-check me-1"></i>Above 85% norm
+          </div>
+        </div>
+        <div class="kpi-icon bg-purple-subtle text-purple" style="background-color: var(--ai-purple-light); color: var(--ai-purple);">
+          <i class="fa-solid fa-user-doctor"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 2. HEALTH RESOURCE RISK INDEX & SYSTEM BANNER ================= -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-4">
+    <div class="command-card risk-index-card p-4 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="text-uppercase tracking-wider small fw-bold mb-0 text-cyan">
+          <i class="fa-solid fa-shield-virus me-2"></i>Resource Risk Index
+        </h6>
+        <span class="badge {% if risk_index.overall >= 80 %}bg-danger{% elif risk_index.overall >= 65 %}bg-warning text-dark{% else %}bg-success{% endif %}" id="riskOverallBadge">{{ risk_index.severity|default('ELEVATED') }}</span>
+      </div>
+      
+      <div class="d-flex align-items-center justify-content-around my-3">
+        <div class="risk-circle">
+          <span class="risk-circle-number text-danger" id="riskOverallNumber">{{ risk_index.overall }}</span>
+          <span class="risk-circle-sub text-white-50">/ 100</span>
+        </div>
+        <div>
+          <div class="small text-white-50">Composite Risk Model:</div>
+          <div class="fw-bold text-white fs-6">Multi-Vector Shortage Threat</div>
+          <div class="small text-info mt-1"><i class="fa-solid fa-robot me-1"></i>Federated AI Aggregated</div>
+        </div>
+      </div>
+
+      <hr class="border-secondary opacity-25 my-3">
+
+      <div class="row g-2 small">
+        <div class="col-6">
+          <div class="d-flex justify-content-between mb-1">
+            <span class="text-white-50">Medicine Pressure:</span>
+            <span class="fw-bold text-danger" id="riskMedPressureText">{{ risk_index.medicine_pressure }}%</span>
+          </div>
+          <div class="progress" style="height: 5px;">
+            <div class="progress-bar bg-danger" id="riskMedPressureBar" style="width: {{ risk_index.medicine_pressure }}%;"></div>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="d-flex justify-content-between mb-1">
+            <span class="text-white-50">Bed Occupancy:</span>
+            <span class="fw-bold text-warning" id="riskBedOccupancyText">{{ risk_index.bed_pressure }}%</span>
+          </div>
+          <div class="progress" style="height: 5px;">
+            <div class="progress-bar bg-warning" id="riskBedOccupancyBar" style="width: {{ risk_index.bed_pressure }}%;"></div>
+          </div>
+        </div>
+        <div class="col-6 mt-2">
+          <div class="d-flex justify-content-between mb-1">
+            <span class="text-white-50">
+              Staff Strain:
+              <span class="badge bg-info-subtle text-info border border-info-subtle" style="font-size: 0.6rem; padding: 1px 4px;">DYNAMIC</span>
+            </span>
+            <span class="fw-bold text-info" id="riskStaffStrainText">{{ risk_index.staff_pressure }}%</span>
+          </div>
+          <div class="progress" style="height: 5px;">
+            <div class="progress-bar bg-info" id="riskStaffStrainBar" style="width: {{ risk_index.staff_pressure }}%;"></div>
+          </div>
+          <div class="text-white-50 mt-1" style="font-size: 0.68rem;" id="riskStaffStrainDetail">
+            <i class="fa-solid fa-bolt text-info me-1"></i>Live: attendance &amp; workload
+          </div>
+        </div>
+        <div class="col-6 mt-2">
+          <div class="d-flex justify-content-between mb-1">
+            <span class="text-white-50">Patient Surge:</span>
+            <span class="fw-bold text-danger" id="riskPatientSurgeText">{{ risk_index.patient_surge }}%</span>
+          </div>
+          <div class="progress" style="height: 5px;">
+            <div class="progress-bar bg-danger" id="riskPatientSurgeBar" style="width: {{ risk_index.patient_surge }}%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="command-card p-4 h-100 d-flex flex-column justify-content-between">
+      <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+          <div class="badge bg-purple-subtle text-purple mb-2" style="background-color: var(--ai-purple-light); color: var(--ai-purple); font-weight: 700;">
+            <i class="fa-solid fa-sparkles me-1"></i> INNOVATION HIGHLIGHT
+          </div>
+          <h5 class="fw-bold mb-1">Predictive Resource Intelligence & Cross-District Rebalancing</h5>
+          <p class="text-muted small mb-0">Unlike traditional passive monitoring dashboards, HealthSync AI evaluates historical demand trends, syndromic patient footfall, and cold-chain constraints to prevent stock-outs before they materialize.</p>
+        </div>
+      </div>
+
+      <div class="row g-3 pt-2">
+        <div class="col-md-4">
+          <div class="p-3 bg-light rounded-3 border">
+            <div class="text-muted small fw-semibold text-uppercase">Forecast Confidence</div>
+            <div class="fs-4 fw-bold text-primary mt-1">94.2%</div>
+            <div class="text-muted small">Validated on 14-day trailing data</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="p-3 bg-light rounded-3 border">
+            <div class="text-muted small fw-semibold text-uppercase">Redistribution Ready</div>
+            <div class="fs-4 fw-bold text-success mt-1">4 Proposals</div>
+            <div class="text-muted small">Zero-impact surplus transfers</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="p-3 bg-light rounded-3 border">
+            <div class="text-muted small fw-semibold text-uppercase">Federated Privacy</div>
+            <div class="fs-4 fw-bold" style="color: var(--ai-purple);">Zero Patient Data</div>
+            <div class="text-muted small">Edge-encrypted weight updates</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 3. GIS REAL-TIME HOSPITAL RADAR & PROXIMITY MAP ================= -->
+<div class="command-card p-4 mb-4" id="hospitalMapSection">
+  <!-- Header row -->
+  <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+    <div>
+      <div class="d-flex align-items-center gap-2">
+        <h5 class="fw-bold mb-0 text-navy">
+          <i class="fa-solid fa-map-location-dot text-primary me-2"></i>Live Hospital Proximity Radar & GIS Map
+        </h5>
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+          <i class="fa-solid fa-satellite-dish me-1"></i>Live Radar
+        </span>
+      </div>
+      <p class="text-muted small mb-0 mt-1">
+        Scan nearby government hospitals and health facilities based on your live location with 5, 10, 15, and 20 km radar coverage.
+      </p>
+    </div>
+
+    <!-- Live GPS Status & Preset Hub Selector -->
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <!-- GPS Status Indicator -->
+      <div id="gpsStatusBadge" class="badge-gps-status d-inline-flex align-items-center px-3 py-2 rounded-pill bg-light border">
+        <span class="pulse-dot me-2 bg-warning" id="gpsPulseDot"></span>
+        <span class="small fw-semibold text-secondary" id="gpsStatusText">Acquiring Live GPS...</span>
+      </div>
+
+      <!-- Detect Location Button -->
+      <button class="btn btn-sm btn-outline-primary" id="btnRefreshLocation" title="Detect Live Location">
+        <i class="fa-solid fa-location-crosshairs me-1"></i> Detect My Location
+      </button>
+
+      <!-- Preset Hubs Dropdown -->
+      <div class="dropdown">
+        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+          <i class="fa-solid fa-building-columns me-1"></i> Switch Hub
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+          <li><h6 class="dropdown-header">Medical Hub Presets</h6></li>
+          <li><a class="dropdown-item preset-location-btn" href="#" data-lat="22.5396" data-lon="88.3426" data-name="Kolkata Central (SSKM)"><i class="fa-solid fa-location-dot me-2 text-danger"></i>Kolkata Central (SSKM Hub)</a></li>
+          <li><a class="dropdown-item preset-location-btn" href="#" data-lat="22.5735" data-lon="88.3619" data-name="Kolkata Medical College"><i class="fa-solid fa-hospital me-2 text-primary"></i>Kolkata Medical College Hub</a></li>
+          <li><a class="dropdown-item preset-location-btn" href="#" data-lat="22.5835" data-lon="88.3242" data-name="Howrah District"><i class="fa-solid fa-location-dot me-2 text-info"></i>Howrah District Hospital</a></li>
+          <li><a class="dropdown-item preset-location-btn" href="#" data-lat="22.7212" data-lon="88.4831" data-name="North 24 Parganas (Barasat)"><i class="fa-solid fa-location-dot me-2 text-success"></i>North 24 Parganas (Barasat)</a></li>
+          <li><a class="dropdown-item preset-location-btn" href="#" data-lat="22.8988" data-lon="88.3934" data-name="Hooghly (Chinsurah)"><i class="fa-solid fa-location-dot me-2 text-warning"></i>Hooghly Imambara Hub</a></li>
+          <li><a class="dropdown-item preset-location-btn" href="#" data-lat="23.2422" data-lon="87.8596" data-name="Burdwan Medical College"><i class="fa-solid fa-location-dot me-2 text-purple"></i>Burdwan Medical Hub</a></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item" href="#" id="btnCustomCoordsPrompt"><i class="fa-solid fa-compass me-2"></i>Enter Custom Lat / Lon...</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Radar Control Bar & Search -->
+  <div class="radar-control-panel p-3 mb-3 rounded-3 bg-light border">
+    <div class="row g-2 align-items-center">
+      <div class="col-lg-6 col-md-12 d-flex flex-wrap align-items-center gap-2">
+        <span class="fw-bold small text-navy text-uppercase tracking-wider">
+          <i class="fa-solid fa-circle-notch fa-spin me-1 text-primary"></i>Radar Radius:
+        </span>
+        <div class="btn-group btn-group-sm radar-btn-group" role="group" aria-label="Radar Range Selector">
+          <button type="button" class="btn btn-outline-primary radar-range-btn" data-radius="5">
+            <i class="fa-solid fa-bullseye me-1"></i>5 km
+          </button>
+          <button type="button" class="btn btn-primary radar-range-btn active" data-radius="10">
+            <i class="fa-solid fa-bullseye me-1"></i>10 km
+          </button>
+          <button type="button" class="btn btn-outline-primary radar-range-btn" data-radius="15">
+            <i class="fa-solid fa-bullseye me-1"></i>15 km
+          </button>
+          <button type="button" class="btn btn-outline-primary radar-range-btn" data-radius="20">
+            <i class="fa-solid fa-bullseye me-1"></i>20 km
+          </button>
+          <button type="button" class="btn btn-outline-secondary radar-range-btn" data-radius="0" title="Show All Registered Facilities in Network">
+            All State
+          </button>
+        </div>
+      </div>
+
+      <div class="col-lg-6 col-md-12">
+        <div class="d-flex align-items-center gap-2 justify-content-lg-end">
+          <div class="input-group input-group-sm" style="max-width: 280px;">
+            <span class="input-group-text bg-white text-muted border-end-0"><i class="fa-solid fa-magnifying-glass"></i></span>
+            <input type="text" id="mapHospitalSearch" class="form-control border-start-0" placeholder="Filter hospital name...">
+          </div>
+          <select id="mapStatusFilter" class="form-select form-select-sm" style="max-width: 140px;">
+            <option value="">All Statuses</option>
+            <option value="NORMAL">Normal</option>
+            <option value="WATCH">Watch</option>
+            <option value="WARNING">Warning</option>
+            <option value="CRITICAL">Critical</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map and Hospital List Split View -->
+  <div class="row g-3">
+    <!-- Map Container Column -->
+    <div class="col-xl-8 col-lg-7">
+      <div class="position-relative rounded-3 overflow-hidden border shadow-sm" style="height: 520px;">
+        <!-- Leaflet Map Element -->
+        <div id="hospitalRadarMap" style="width: 100%; height: 100%; z-index: 1;"></div>
+
+        <!-- Google Maps-Style Layer Switcher Controls (Top Right Overlay) -->
+        <div class="map-overlay-layer-toggle">
+          <div class="btn-group btn-group-sm shadow-sm" role="group">
+            <button type="button" class="btn btn-sm btn-light active map-layer-btn" data-layer="street" id="btnLayerStreet">
+              <i class="fa-solid fa-map me-1 text-primary"></i>Map
+            </button>
+            <button type="button" class="btn btn-sm btn-light map-layer-btn" data-layer="satellite" id="btnLayerSatellite">
+              <i class="fa-solid fa-satellite me-1 text-secondary"></i>Satellite
+            </button>
+          </div>
+        </div>
+
+        <!-- Google Maps-Style Recenter / GPS Crosshairs Button (Bottom Right Overlay) -->
+        <div class="map-overlay-recenter">
+          <button type="button" class="btn btn-light shadow-sm map-recenter-btn" id="btnMapRecenter" title="Center map on your location">
+            <i class="fa-solid fa-crosshairs text-primary"></i>
+          </button>
+        </div>
+
+        <!-- Radar Sweep Overlay Animation Badge (Bottom Left Overlay) -->
+        <div class="map-overlay-radar-badge shadow-sm">
+          <div class="d-flex align-items-center gap-2">
+            <div class="radar-ping"></div>
+            <span class="small fw-bold text-dark" id="mapRadarBadgeText">Radar: 10 km Active</span>
+            <span class="badge bg-primary text-white" id="mapRadarCountPill">0 Found</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Legend Under Map -->
+      <div class="d-flex flex-wrap align-items-center justify-content-between mt-2 pt-1 text-muted small">
+        <div class="d-flex align-items-center gap-3">
+          <span><span class="legend-dot bg-primary"></span> Your Live GPS</span>
+          <span><span class="legend-dot bg-success"></span> Normal (Adequate Beds)</span>
+          <span><span class="legend-dot bg-warning"></span> Warning (High Occupancy)</span>
+          <span><span class="legend-dot bg-danger"></span> Critical (Stockout / Full)</span>
+        </div>
+        <div class="text-end">
+          <i class="fa-brands fa-google text-muted me-1"></i> Interactive Google Maps Navigation Enabled
+        </div>
+      </div>
+    </div>
+
+    <!-- Hospital List Column -->
+    <div class="col-xl-4 col-lg-5">
+      <div class="hospital-list-panel d-flex flex-column h-100 rounded-3 border bg-white p-3 shadow-sm">
+        <!-- Panel Header -->
+        <div class="d-flex justify-content-between align-items-center pb-2 mb-2 border-bottom">
+          <div>
+            <h6 class="fw-bold mb-0 text-navy">
+              <i class="fa-solid fa-hospital-user text-primary me-2"></i>Hospitals in Radar
+            </h6>
+            <small class="text-muted" id="hospitalListSubtitle">Within 10 km of your location</small>
+          </div>
+          <span class="badge bg-primary fs-6 px-2 py-1" id="hospitalListCountBadge">0</span>
+        </div>
+
+        <!-- Sort selector -->
+        <div class="d-flex align-items-center justify-content-between mb-2 small text-muted">
+          <span>Sort By:</span>
+          <select id="hospitalSortSelect" class="form-select form-select-sm w-auto py-0 px-2">
+            <option value="distance_asc">Nearest First</option>
+            <option value="beds_desc">Available Beds</option>
+            <option value="occupancy_desc">Occupancy %</option>
+            <option value="name_asc">Name A-Z</option>
+          </select>
+        </div>
+
+        <!-- Scrollable Hospital Cards Container -->
+        <div class="hospital-cards-scroll flex-grow-1 overflow-auto pe-1" id="hospitalCardsContainer" style="max-height: 440px;">
+          <!-- Dynamically populated hospital cards -->
+          <div class="text-center py-5 text-muted">
+            <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
+            <div class="small">Detecting location and scanning hospitals...</div>
+          </div>
+        </div>
+
+        <!-- Panel Footer with Total Telemetry Summary -->
+        <div class="pt-2 mt-2 border-top small text-muted d-flex justify-content-between align-items-center">
+          <span id="hospitalSummaryFooter"><i class="fa-solid fa-circle-check text-success me-1"></i>Live Telemetry Connected</span>
+          <a href="{{ url_for('main.phcs_view') }}" class="text-primary text-decoration-none fw-semibold">
+            All PHCs <i class="fa-solid fa-arrow-right ms-1"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 4. AI DEMAND FORECAST SECTION ================= -->
+<div class="command-card p-4 mb-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+    <div>
+      <div class="d-flex align-items-center gap-2">
+        <h5 class="fw-bold mb-0">AI Demand Forecast</h5>
+        <span class="badge badge-ai">Predictive Engine</span>
+      </div>
+      <p class="text-muted small mb-0">Continuous consumption regression integrating historical demand, footfall surges, and disease seasonality.</p>
+    </div>
+    <div class="btn-group btn-group-sm mt-2 mt-sm-0" role="group">
+      <button type="button" class="btn btn-primary forecast-window-btn active" data-window="7">7 Days</button>
+      <button type="button" class="btn btn-outline-primary forecast-window-btn" data-window="30">30 Days</button>
+      <button type="button" class="btn btn-outline-primary forecast-window-btn" data-window="90">90 Days</button>
+    </div>
+  </div>
+
+  <!-- Key Medicine Demand Surges -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3 col-sm-6">
+      <div class="border rounded-3 p-3 bg-light">
+        <div class="d-flex justify-content-between">
+          <span class="fw-semibold">Paracetamol</span>
+          <span class="text-danger fw-bold"><i class="fa-solid fa-arrow-trend-up me-1"></i>+23%</span>
+        </div>
+        <div class="text-muted small mt-1">Confidence: <strong>{{ forecast_paracetamol.confidence }}%</strong></div>
+        <div class="progress mt-2" style="height: 4px;">
+          <div class="progress-bar bg-danger" style="width: 78%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6">
+      <div class="border rounded-3 p-3 bg-light">
+        <div class="d-flex justify-content-between">
+          <span class="fw-semibold">Antibiotics</span>
+          <span class="text-danger fw-bold"><i class="fa-solid fa-arrow-trend-up me-1"></i>+17%</span>
+        </div>
+        <div class="text-muted small mt-1">Confidence: <strong>{{ forecast_antibiotic.confidence }}%</strong></div>
+        <div class="progress mt-2" style="height: 4px;">
+          <div class="progress-bar bg-danger" style="width: 65%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6">
+      <div class="border rounded-3 p-3 bg-light">
+        <div class="d-flex justify-content-between">
+          <span class="fw-semibold">ORS Rehydration</span>
+          <span class="text-danger fw-bold"><i class="fa-solid fa-arrow-trend-up me-1"></i>+31%</span>
+        </div>
+        <div class="text-muted small mt-1">Confidence: <strong>{{ forecast_ors.confidence }}%</strong></div>
+        <div class="progress mt-2" style="height: 4px;">
+          <div class="progress-bar bg-danger" style="width: 89%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6">
+      <div class="border rounded-3 p-3 bg-light">
+        <div class="d-flex justify-content-between">
+          <span class="fw-semibold">Vaccines</span>
+          <span class="text-warning fw-bold"><i class="fa-solid fa-arrow-trend-up me-1"></i>+12%</span>
+        </div>
+        <div class="text-muted small mt-1">Confidence: <strong>{{ forecast_vaccine.confidence }}%</strong></div>
+        <div class="progress mt-2" style="height: 4px;">
+          <div class="progress-bar bg-warning" style="width: 52%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart Container -->
+  <div style="height: 280px; position: relative;">
+    <canvas id="demandForecastChart"></canvas>
+  </div>
+</div>
+
+<!-- ================= 4. CRITICAL ALERTS & REDISTRIBUTION ================= -->
+<div class="row g-3 mb-4">
+  <!-- Critical Alerts Panel -->
+  <div class="col-lg-7">
+    <div class="command-card p-4 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h5 class="fw-bold mb-0 text-danger"><i class="fa-solid fa-bell me-2"></i>Critical Early Warnings</h5>
+          <p class="text-muted small mb-0">Autonomous early alerts predicted before actual stockouts occur.</p>
+        </div>
+        <a href="{{ url_for('main.alerts_view') }}" class="btn btn-sm btn-outline-danger">View All 126</a>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-custom">
+          <thead>
+            <tr>
+              <th>Severity</th>
+              <th>PHC / Location</th>
+              <th>Predicted Shortage / Issue</th>
+              <th>Status</th>
+              <th class="text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in alerts[:5] %}
+            <tr id="alertRow_{{ a.id }}">
+              <td>
+                {% if a.severity == 'CRITICAL' %}
+                  <span class="badge badge-critical">CRITICAL</span>
+                {% elif a.severity == 'HIGH' %}
+                  <span class="badge badge-high">HIGH</span>
+                {% else %}
+                  <span class="badge badge-medium">{{ a.severity }}</span>
+                {% endif %}
+              </td>
+              <td class="fw-semibold">
+                {{ a.phc.phc_code if a.phc else 'NAT' }}
+                <div class="text-muted small">{{ a.phc.name if a.phc else 'Multi-District' }}</div>
+              </td>
+              <td>
+                <div class="small fw-semibold text-dark">{{ a.message }}</div>
+                <div class="text-muted small" style="font-size: 0.72rem;">
+                  <i class="fa-solid fa-clock me-1"></i>{{ a.created_at.strftime('%d %b, %H:%M') }}
+                </div>
+              </td>
+              <td>
+                <span class="badge bg-warning-subtle text-warning alert-status-badge">{{ a.status }}</span>
+              </td>
+              <td class="text-end">
+                <button class="btn btn-sm btn-outline-secondary resolve-btn py-1 px-2" onclick="resolveAlert({{ a.id }})" title="Resolve Alert">
+                  <i class="fa-solid fa-check"></i>
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Resource Redistribution Recommendations -->
+  <div class="col-lg-5">
+    <div class="command-card p-4 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h5 class="fw-bold mb-0 text-primary"><i class="fa-solid fa-shuffle me-2"></i>Resource Redistribution</h5>
+          <p class="text-muted small mb-0">Autonomous matching of surplus hubs to deficit clinics.</p>
+        </div>
+        <a href="{{ url_for('main.redistribution_view') }}" class="btn btn-sm btn-outline-primary">Manage</a>
+      </div>
+
+      {% if redistributions %}
+        {% for r in redistributions %}
+        <div class="border rounded-3 p-3 mb-3 bg-light">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+              <span class="badge bg-primary me-1">{{ r.medicine.name }}</span>
+              <span class="fw-bold text-dark fs-6">{{ r.quantity }} {{ r.medicine.unit }}</span>
+            </div>
+            <span class="badge bg-success-subtle text-success border border-success-subtle">
+              <i class="fa-solid fa-sparkles me-1"></i>{{ r.confidence }}% Confidence
+            </span>
+          </div>
+
+          <div class="small mb-2">
+            <div class="text-muted"><i class="fa-solid fa-arrow-up-from-bracket text-info me-1"></i><strong>FROM:</strong> {{ r.source_phc }}</div>
+            <div class="text-muted"><i class="fa-solid fa-arrow-down-to-bracket text-danger me-1"></i><strong>TO:</strong> {{ r.target_phc }}</div>
+          </div>
+
+          <div class="p-2 bg-white rounded border small text-muted mb-3" style="font-size: 0.76rem;">
+            <strong>AI Rationale:</strong> {{ r.reason }}
+          </div>
+
+          <div class="d-flex gap-2 justify-content-end">
+            <button class="btn btn-sm btn-outline-danger" onclick="rejectRedistribution({{ r.id }})">
+              <i class="fa-solid fa-xmark me-1"></i>Reject
+            </button>
+            <button class="btn btn-sm btn-success" onclick="approveRedistribution({{ r.id }})">
+              <i class="fa-solid fa-check me-1"></i>Approve Transfer
+            </button>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="text-center py-4 text-muted">
+          <i class="fa-solid fa-circle-check fs-1 text-success mb-2"></i>
+          <p class="small mb-0">No pending redistribution transfers. All centers balanced.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- ================= 5. QUICK WHAT-IF SIMULATOR PREVIEW ================= -->
+<div class="command-card p-4 mb-4" id="whatIfContainer">
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+    <div>
+      <div class="d-flex align-items-center gap-2">
+        <h5 class="fw-bold mb-0"><i class="fa-solid fa-calculator text-primary me-2"></i>AI What-If Stress Simulator</h5>
+        <span class="badge bg-secondary-subtle text-secondary">Non-destructive</span>
+      </div>
+      <p class="text-muted small mb-0">Simulate external epidemiological surges without modifying production database records.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
+      <span class="small fw-semibold text-muted">Simulate Demand Surge:</span>
+      <div class="btn-group btn-group-sm" role="group">
+        <button type="button" class="btn btn-outline-secondary what-if-btn" data-percent="0">0%</button>
+        <button type="button" class="btn btn-outline-secondary what-if-btn" data-percent="10">10%</button>
+        <button type="button" class="btn btn-primary what-if-btn active" data-percent="20">20%</button>
+        <button type="button" class="btn btn-outline-secondary what-if-btn" data-percent="30">30%</button>
+        <button type="button" class="btn btn-outline-secondary what-if-btn" data-percent="50">50%</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-3 col-sm-6">
+      <div class="p-3 bg-light rounded border text-center">
+        <div class="text-muted small fw-semibold text-uppercase">Simulated Bed Pressure</div>
+        <div class="fs-3 fw-bold text-danger mt-1" id="simBedOccupancy">89.8%</div>
+        <div class="small text-muted">+5.6% vs Baseline</div>
+      </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+      <div class="p-3 bg-light rounded border text-center">
+        <div class="text-muted small fw-semibold text-uppercase">Projected Active Alerts</div>
+        <div class="fs-3 fw-bold text-warning mt-1" id="simAlertCount">162</div>
+        <div class="small text-muted">+36 alerts triggered</div>
+      </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+      <div class="p-3 bg-light rounded border text-center">
+        <div class="text-muted small fw-semibold text-uppercase">Critical Shortage PHCs</div>
+        <div class="fs-3 fw-bold text-danger mt-1" id="simCritPhcs">43</div>
+        <div class="small text-muted">+9 at immediate risk</div>
+      </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+      <div class="p-3 bg-light rounded border text-center">
+        <div class="text-muted small fw-semibold text-uppercase">Required Transfer Volume</div>
+        <div class="fs-3 fw-bold text-primary mt-1" id="simDeficitUnits">5,480 units</div>
+        <div class="small text-muted">To maintain 7-day reserve</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 6. FEDERATED AI NETWORK PREVIEW ================= -->
+<div class="command-card p-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+    <div>
+      <div class="d-flex align-items-center gap-2">
+        <h5 class="fw-bold mb-0" style="color: var(--ai-purple);"><i class="fa-solid fa-network-wired me-2"></i>Federated Learning Network Architecture</h5>
+        <span class="badge bg-purple-subtle text-purple" style="background-color: var(--ai-purple-light); color: var(--ai-purple);">Privacy-Preserving</span>
+      </div>
+      <p class="text-muted small mb-0">Local predictive models trained at edge PHCs. Raw electronic health records remain strictly on-premise.</p>
+    </div>
+    <a href="{{ url_for('main.federated_view') }}" class="btn btn-sm btn-outline-primary mt-2 mt-md-0">
+      Open Federation Topology
+    </a>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-2 col-6">
+      <div class="node-card text-center">
+        <span class="node-status-indicator node-active"></span>
+        <div class="fw-bold small">PHC-WB-001</div>
+        <div class="text-muted" style="font-size: 0.7rem;">SSKM & IPGMER</div>
+        <div class="badge bg-success-subtle text-success small mt-1">93.8% Acc</div>
+      </div>
+    </div>
+    <div class="col-md-2 col-6">
+      <div class="node-card text-center">
+        <span class="node-status-indicator node-active"></span>
+        <div class="fw-bold small">PHC-WB-026</div>
+        <div class="text-muted" style="font-size: 0.7rem;">Burdwan Medical</div>
+        <div class="badge bg-success-subtle text-success small mt-1">92.6% Acc</div>
+      </div>
+    </div>
+    <div class="col-md-2 col-6">
+      <div class="node-card text-center">
+        <span class="node-status-indicator node-active"></span>
+        <div class="fw-bold small">PHC-WB-011</div>
+        <div class="text-muted" style="font-size: 0.7rem;">Howrah District</div>
+        <div class="badge bg-success-subtle text-success small mt-1">91.9% Acc</div>
+      </div>
+    </div>
+    <div class="col-md-2 col-6">
+      <div class="node-card text-center">
+        <span class="node-status-indicator node-active"></span>
+        <div class="fw-bold small">PHC-WB-016</div>
+        <div class="text-muted" style="font-size: 0.7rem;">Imambara Sadar</div>
+        <div class="badge bg-success-subtle text-success small mt-1">91.5% Acc</div>
+      </div>
+    </div>
+    <div class="col-md-2 col-6">
+      <div class="node-card text-center">
+        <span class="node-status-indicator node-active"></span>
+        <div class="fw-bold small">PHC-WB-021</div>
+        <div class="text-muted" style="font-size: 0.7rem;">JNM Kalyani</div>
+        <div class="badge bg-success-subtle text-success small mt-1">92.9% Acc</div>
+      </div>
+    </div>
+    <div class="col-md-2 col-6">
+      <div class="node-card text-center bg-primary-subtle border-primary">
+        <i class="fa-solid fa-brain text-primary"></i>
+        <div class="fw-bold small text-primary">Global Model</div>
+        <div class="text-primary" style="font-size: 0.7rem;">FedAvg v1.3.0</div>
+        <div class="badge bg-primary text-white small mt-1">92.5% Global</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODAL: QUICK HOSPITAL TELEMETRY ================= -->
+<div class="modal fade" id="hospitalQuickDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg border-0">
+      <div class="modal-header bg-light">
+        <h5 class="modal-title fw-bold text-navy" id="quickModalTitle">
+          <i class="fa-solid fa-hospital me-2 text-primary"></i>Facility Telemetry
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4" id="quickModalBody">
+        <div class="text-center py-4">
+          <div class="spinner-border spinner-border-sm text-primary mb-2"></div>
+          <div>Loading facility telemetry...</div>
+        </div>
+      </div>
+      <div class="modal-footer bg-light d-flex justify-content-between">
+        <a id="quickModalGoogleMapsBtn" href="#" target="_blank" class="btn btn-sm btn-primary">
+          <i class="fa-brands fa-google me-1"></i> Directions in Google Maps
+        </a>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
